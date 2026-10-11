@@ -1,0 +1,57 @@
+
+name: Deploy latest IELTS vocabulary version
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Prepare website from newest version file
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p _site
+          latest="$(find . -maxdepth 1 -type f -name 'IELTS-VOCAB-v*.html' -printf '%f\n' | sort -V | tail -n 1)"
+          if [[ -n "$latest" ]]; then
+            cp "$latest" _site/index.html
+            echo "Publishing latest version file: $latest"
+          elif [[ -f index.html ]]; then
+            cp index.html _site/index.html
+            echo "No versioned file found; publishing index.html"
+          else
+            echo "ERROR: No IELTS-VOCAB-v*.html or index.html found in repository root." >&2
+            exit 1
+          fi
+          touch _site/.nojekyll
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

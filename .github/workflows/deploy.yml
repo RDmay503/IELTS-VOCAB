@@ -25,24 +25,56 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Prepare website from newest version file
+      - name: Prepare website from most recently uploaded HTML
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p _site
-          latest="$(find . -maxdepth 1 -type f -name 'IELTS-VOCAB-v*.html' -printf '%f\n' | sort -V | tail -n 1)"
-          if [[ -n "$latest" ]]; then
-            cp "$latest" _site/index.html
-            echo "Publishing latest version file: $latest"
-          elif [[ -f index.html ]]; then
-            cp index.html _site/index.html
-            echo "No versioned file found; publishing index.html"
-          else
-            echo "ERROR: No IELTS-VOCAB-v*.html or index.html found in repository root." >&2
-            exit 1
-          fi
-          touch _site/.nojekyll
+          python3 <<'PY'
+          import hashlib
+          import pathlib
+          import shutil
+          import subprocess
+
+          def git(*args):
+              return subprocess.check_output(['git', *args])
+
+          tracked = [p.decode('utf-8') for p in git('ls-files', '-z').split(b'\0') if p]
+          html = {p for p in tracked if pathlib.Path(p).suffix.lower() in ('.html', '.htm')
+                  and not p.startswith(('.github/', '_site/'))}
+          source = None
+          for commit in git('rev-list', '--first-parent', 'HEAD').decode().splitlines():
+              changed = git('diff-tree', '--root', '-m', '--first-parent',
+                            '--no-commit-id', '--name-only', '-z', '-r',
+                            '--diff-filter=AMR', commit)
+              candidates = sorted({p.decode('utf-8') for p in changed.split(b'\0') if p} & html)
+              if candidates:
+                  if len(candidates) != 1:
+                      raise SystemExit('Multiple HTML files changed in the latest upload. '
+                                       'Upload the intended homepage alone: ' + repr(candidates))
+                  source = pathlib.Path(candidates[0])
+                  break
+          if source is None:
+              raise SystemExit('No uploaded HTML file found in the Git history.')
+
+          site = pathlib.Path('_site')
+          site.mkdir(exist_ok=True)
+          # Preserve assets relative to the selected HTML, including uploads in subfolders.
+          for name in tracked:
+              path = pathlib.Path(name)
+              if path.is_relative_to(source.parent) and not name.startswith(('.github/', '_site/')):
+                  target = site / path.relative_to(source.parent)
+                  target.parent.mkdir(parents=True, exist_ok=True)
+                  shutil.copyfile(path, target)
+          shutil.copyfile(source, site / 'index.html')
+          (site / '.nojekyll').touch()
+          digest = hashlib.sha256(source.read_bytes()).hexdigest()
+          print(f'Publishing latest uploaded HTML: {source}; SHA256: {digest}')
+          with open(__import__('os').environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as summary:
+              summary.write(f'Published HTML: `{source}`\n\nSHA256: `{digest}`\n')
+          PY
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5

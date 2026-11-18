@@ -20,6 +20,8 @@ def get(url):
 def prepare(offset):
     date = today + dt.timedelta(days=offset)
     path = date.strftime("%Y/%m/%d.json")
+    if (root / path).is_file():
+        return True
     source = (date - dt.timedelta(days=8)).strftime("%Y/%m/%d")
     for url in (origin + path, "https://en.wikipedia.org/api/rest_v1/feed/featured/" + source):
         try:

@@ -5,6 +5,8 @@ on:
   push:
     branches:
       - main
+  schedule:
+    - cron: '17 0,8 * * *'
   workflow_dispatch:
 
 permissions:
@@ -70,12 +72,31 @@ jobs:
                   shutil.copyfile(path, target)
           shutil.copytree('moonmargin', site / 'moonmargin', dirs_exist_ok=True)
           shutil.copyfile(source, site / 'index.html')
+          homepage = site / 'index.html'
+          page = homepage.read_text(encoding='utf-8')
+          marker = '<div class="tiles">'
+          if marker in page:
+              start = page.index(marker)
+              end = page.index('</div>', start)
+              tile = '<a class="tile" style="text-decoration:none;color:inherit" href="./moonmargin/"><span class="num">03 / MOONMARGIN 月读</span><span class="tile-title">Reading</span></a>'
+              page = page[:end] + tile + page[end:]
+              page = page.replace('</head>', '<style>@media(min-width:760px){#home .tiles{grid-template-columns:repeat(3,minmax(0,1fr))}}</style></head>', 1)
+              homepage.write_text(page, encoding='utf-8')
           (site / '.nojekyll').touch()
           digest = hashlib.sha256(source.read_bytes()).hexdigest()
           print(f'Publishing latest uploaded HTML: {source}; SHA256: {digest}')
           with open(__import__('os').environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as summary:
               summary.write(f'Published HTML: `{source}`\n\nSHA256: `{digest}`\n')
           PY
+
+      - name: Cache daily reading for same-origin access
+        shell: bash
+        run: |
+          day=$(TZ=Asia/Shanghai date +%Y/%m/%d)
+          mkdir -p "_site/moonmargin/feed/$(dirname "$day")"
+          if curl -fsSL --retry 2 --max-time 20 -A "Moonmargin/1.0 (github.com/RDmay503/IELTS-VOCAB)" "https://en.wikipedia.org/api/rest_v1/feed/featured/$day" -o /tmp/moon-feed.json && jq -e '.tfa.extract and .tfa.titles.normalized' /tmp/moon-feed.json >/dev/null; then
+            jq '{tfa: (.tfa | {title,titles,extract})}' /tmp/moon-feed.json > "_site/moonmargin/feed/$day.json"
+          fi
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5

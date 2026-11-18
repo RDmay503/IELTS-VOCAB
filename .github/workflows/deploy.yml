@@ -43,7 +43,7 @@ jobs:
 
           tracked = [p.decode('utf-8') for p in git('ls-files', '-z').split(b'\0') if p]
           html = {p for p in tracked if pathlib.Path(p).suffix.lower() in ('.html', '.htm')
-                  and not p.startswith(('.github/', '_site/'))}
+                  and not p.startswith(('.github/', '_site/', 'moonmargin/'))}
           source = None
           for commit in git('rev-list', '--first-parent', 'HEAD').decode().splitlines():
               changed = git('diff-tree', '--root', '-m', '--first-parent',
@@ -68,6 +68,7 @@ jobs:
                   target = site / path.relative_to(source.parent)
                   target.parent.mkdir(parents=True, exist_ok=True)
                   shutil.copyfile(path, target)
+          shutil.copytree('moonmargin', site / 'moonmargin', dirs_exist_ok=True)
           shutil.copyfile(source, site / 'index.html')
           (site / '.nojekyll').touch()
           digest = hashlib.sha256(source.read_bytes()).hexdigest()

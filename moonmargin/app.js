@@ -7,7 +7,16 @@ let saved=load('saved',{}),done=load('done',{}),daily=load('daily',{}),scale=loa
 const all=()=>Object.values(Object.fromEntries([...ARTICLES,...Object.values(daily),...Object.values(saved),...Object.values(quoteArticles)].map(a=>[a.id,a])));
 function datestr(){return new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Shanghai'}).format(new Date())}
 function initial(){const n=Math.floor((Date.parse(day)-Date.parse('2026-11-18'))/86400000);return daily[day]||ARTICLES[((n%ARTICLES.length)+ARTICLES.length)%ARTICLES.length]}
-function words(p){return esc(p).replace(/[A-Za-z]+(?:[’'][A-Za-z]+)*/g,w=>'<span role="button" tabindex="0" class="word '+(active.focus?.includes(w.toLowerCase())?'focus':'')+'" data-word="'+w+'">'+w+'</span>')}
+function words(p){
+ const pattern=/[A-Za-z]+(?:[’'][A-Za-z]+)*/g;
+ let html='',last=0,match;
+ while((match=pattern.exec(p))){
+  const w=match[0];
+  html+=esc(p.slice(last,match.index))+'<span role="button" tabindex="0" class="word '+(active.focus?.includes(w.toLowerCase())?'focus':'')+'" data-word="'+esc(w)+'">'+esc(w)+'</span>';
+  last=pattern.lastIndex;
+ }
+ return html+esc(p.slice(last))
+}
 function item(a){return '<button class="item" data-open="'+esc(a.id)+'"><strong>'+esc(a.title)+'</strong><small>'+esc(a.level)+' · '+esc(a.topic)+'</small></button>'}
 function render(animate=false){
  clearChoice();

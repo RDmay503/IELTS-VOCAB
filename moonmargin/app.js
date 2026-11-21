@@ -57,8 +57,8 @@ function toggleWordFavorite(raw,paragraphIndex){
  notice(on?'单词已收藏':'已取消单词收藏')
 }
 let wordClickTimer;
-$('#close').onclick=()=>$('#card').close();$('#card').onclick=e=>{if(e.target===$('#card'))$('#card').close()};$('#main').onclick=e=>{let el=e.target.closest('[data-open],[data-word]');if(!el)return;if(el.dataset.word){if(!window.getSelection()?.isCollapsed)return;clearTimeout(wordClickTimer);if(e.detail>1){toggleWordFavorite(el.dataset.word,el.closest('p')?.dataset.paragraph);return}wordClickTimer=setTimeout(()=>showWord(el.dataset.word),230)}else{active=all().find(a=>a.id===el.dataset.open);selected=true;view='today';render();window.scrollTo(0,0)}};
-$('#main').ondblclick=e=>{const el=e.target.closest('[data-word]');if(el)e.preventDefault()};
+$('#close').onclick=()=>$('#card').close();$('#card').onclick=e=>{if(e.target===$('#card'))$('#card').close()};$('#main').onclick=e=>{let el=e.target.closest('[data-open],[data-word]');if(!el)return;if(el.dataset.word){if(!window.getSelection()?.isCollapsed)return;clearTimeout(wordClickTimer);if(e.detail>1)return;wordClickTimer=setTimeout(()=>showWord(el.dataset.word),230)}else{active=all().find(a=>a.id===el.dataset.open);selected=true;view='today';render();window.scrollTo(0,0)}};
+$('#main').ondblclick=e=>{const el=e.target.closest('[data-word]');if(!el)return;e.preventDefault();clearTimeout(wordClickTimer);toggleWordFavorite(el.dataset.word,el.closest('p')?.dataset.paragraph)};
 $('#main').onkeydown=e=>{if(e.target.dataset.word&&['Enter',' '].includes(e.key)){e.preventDefault();showWord(e.target.dataset.word)}};
 $('#saved').innerHTML=favoriteIcon+' 收藏库';$('#saved').onclick=()=>{view=view==='saved'?'today':'saved';render()};$('#today').onclick=()=>{view='today';selected=false;active=initial();render()};
 async function refresh(){day=datestr();active=initial();render();if(daily[day])return;const key=day;
